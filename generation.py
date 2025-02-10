@@ -1,0 +1,179 @@
+r"""
+    Generation of FatGraph starting from small examples. We ensure small operations to augment the size of the FatGraph.
+    All of this FatGraph are 4-valency FatGraph.
+"""
+
+from surface_dynamics.misc.permutation import perm_invert
+
+
+def ed_perm(k):
+    if k%2==1:
+        return k-1
+    else:
+        return k+1
+
+def flip(vp, fp, h): #take the two permutations of the FatGraph and a semi-edge and "flip" the vertex that end the edge
+    if len(vp)-1<h:
+        raise ValueError("This edge doesn't belong to this graph")
+    if fp[h] != h:
+        h2 = ed_perm(h)
+        i1 = vp[h]
+        i2 = vp[i1]
+        i3 = vp[i2]
+        j1 = vp[h2]
+        j2 = vp[j1]
+        j3 = vp[j2]
+    
+        vp[h] = j3
+        vp[j3] = i1
+        vp[i2] = h
+    
+        vp[h2] = i3
+        vp[i3] = j1
+        vp[j2] = h2
+
+        fp[h2] = i2
+        fp[ed_perm(i3)]= h2
+        fp[ed_perm(j1)] = i3
+
+        fp[h] = j2
+        fp[ed_perm(j3)] = h
+        fp[ed_perm(i1)] = j3
+
+
+def three_three(vp,fp,h):
+    if len(vp)-1<h:
+        raise ValueError("This edge doesn't belong to this graph")
+    if fp[h] == h:
+        raise ValueError("This edge form a loop")
+
+    h2 = fp[h]
+    h3 = fp[h2]
+    if fp[h3] != h:
+        raise ValueError("This face is not triangular")
+    j = ed_perm(h)
+    j2 = ed_perm(h2)
+    j3 = ed_perm(h3)
+
+    a1 = vp[j]
+    a2 = vp[a1]
+    b1 = vp[j2]
+    b2 = vp[b1]
+    c1 = vp[j3]
+    c2 = vp[c1]
+
+    vp[c2] = a1
+    vp[a1] = h
+    vp[j3] = c2
+    vp[j] = a2
+    vp[a2] = b1
+    vp[b1] = h2
+    vp[j2] = b2
+    vp[b2] = c1
+    vp[c1] = h3
+
+    fp[ed_perm(c1)] = b2
+    fp[ed_perm(c2)] = j3
+    fp[j3] = c1
+    fp[ed_perm(a1)] = c2
+    fp[ed_perm(a2)] = j
+    fp[j] = a1
+    fp[ed_perm(b1)] = a2
+    fp[ed_perm(b2)] = j2
+    fp[j2] = b1
+    
+
+def g_n_init(g,n): #create a g genus map with n vertex
+    if n < 2:
+        raise ValueError("Not implemented yet, sorry !")
+    if n < 2*g:
+        raise ValueError("There is no such map (not enough vertex)")
+    vp = [None for i in range(4*n)]
+    fp = [None for i in range(4*n)]
+    r = n-2*g
+
+    for i in range(g):
+        vp[4*i] = 4*(g+i)
+        vp[4*i+1] = 4*(g+i)+2
+        vp[4*i+2] = 4*i+1
+        vp[4*i+3] = 4*i
+        vp[4*(g+i)+2] = 4*i+3
+        vp[4*(g+i)+1] = 4*(g+i)+3
+        if i!=g-1:
+            vp[4*(g+i)+3] = 4*(g+i)+5
+        else: 
+            vp[4*(g+i)+3] = 4*g+1
+        if i!=0:
+            vp[4*(g+i)] = 4*i-2
+        else:
+            vp[4*(g+i)] = 4*g-2
+
+        fp[4*i] = 4*i+2
+        fp[4*i+2] = 4*(g+i)+2
+        fp[4*(g+i)+2] = 4*(g+i)+1
+        fp[4*(g+i)+1] = 4*i
+
+        fp[4*i+1] = 4*i+3
+        fp[4*(g+i)+3] = 4*i+1
+        if i!=g-1:
+            fp[4*i+3] = 4*(g+i+1)
+            fp[4*(g+i+1)] = 4*(g+i)+3 
+        else:
+            fp[4*i+3] = 4*g
+            fp[4*g] = 4*(g+i)+3
+    
+    if g == 0:
+        for j in range(r):
+            vp[4*j+1] = 4*j+1
+            vp[4*j] = 4*j+2
+            if j!=0:
+                vp[4*j+2] = 4*(j-1)
+            else:
+                vp[2] = 4*(r-1)
+                vp[4*r-1] = 3
+                fp[4*r-3] = 2
+                fp[2] = 4*r-1
+            
+            fp[4*j] = 4*j+1
+            fp[4*j+3] = 4*j
+            if j != r-1:
+                fp[4*j+1] = 4*j+6
+                fp[4*j+6] = 4*j+3
+                vp[4*j+3] = 4*j+7
+            else:
+                vp[4*r-1] = 3
+    else:
+        for j in range(r):
+            vp[8*g+4*j+1] = 8*g+4*j+1
+            vp[8*g+4*j] = 8*g+4*j+2
+            if j!=0:
+                vp[8*g+4*j+2] = 8*g+4*(j-1)
+            else:
+                vp[8*g+4*j+2] = 4*g-2
+                fp[4*g-1] = 8*g+2
+                fp[8*g+2] = 8*g-1
+                vp[4*g] = 8*g+4*(r-1)
+                vp[8*g-1] = 8*g+3
+            
+            fp[8*g+4*j] = 8*g+4*j+1
+            fp[8*g+4*j+3] = 8*g+4*j
+            if j != r-1:
+                fp[8*g+4*j+1] = 8*g+4*j+6
+                fp[8*g+4*j+6] = 8*g+4*j+3
+                vp[8*g+4*j+3] = 8*g+4*j+7
+            else: 
+                fp[8*g+4*j+1] = 4*g
+                fp[4*g] = 8*g+4*j+3
+                vp[8*g+4*j+3] = 4*g+1
+            
+    return perm_invert(fp),perm_invert(vp)
+        
+
+
+
+
+
+
+
+    
+        
