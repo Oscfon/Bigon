@@ -169,6 +169,89 @@ def g_n_init(g,n): #create a g genus map with n vertex
     return perm_invert(fp),perm_invert(vp)
         
 
+r"""
+    Sampling of eulerian maps using Fusy-Guitter bijection (http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf)
+
+
+
+    Note de programmation : Tirer un arbre, un mot de Dick -> blossoming tree + une fonction de matching sur chaque arête entrante !
+    
+    Le degré des nœuds de l'arbre est le degré des sommets de la carte !
+    Il faut un arbre eulérien ie : tous les sommets ont degré pair (2k) avec k-1 feuilles
+"""
+
+class eulerian_tree:
+    def __init__(self,t,b): # t is a binary tree and b is the corner in which is the out-leaf on each node.
+        current = t
+        left_tree = []
+        sub_tree = []
+        corner = [0]
+        h = 1
+        out = []
+        while corner[-1] != 2 or current != t:
+            if current.is_empty():
+                left_tree.append(['c',h])
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree[-1]
+                sub_tree.pop()
+                h -= 1
+            elif corner[-1] == 0:
+                out.append(b.pop())
+                if out[-1] == 0:
+                    h += 1
+                sub_tree.append(current)
+                current = current[0]
+                corner.append(0)
+            elif corner[-1] == 1:
+                if out[-1] == 1:
+                    h += 1
+                sub_tree.append(current)
+                current = current[1]
+                corner.append(0)
+            else:
+                t2 = left_tree.pop()
+                t1 = left_tree.pop()
+                if out[-1] == 0:
+                    left_tree.append(['o',t1,t2])
+                elif out[-1] == 1:
+                    left_tree.append([t1,'o',t2])
+                else:
+                    left_tree.append([t1,t2,'o'])
+                    h += 1
+                out.pop()
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree[-1]
+                sub_tree.pop()
+        t2 = left_tree.pop()
+        t1 = left_tree.pop()
+        if out[-1] == 0:
+            self._tree = ['o', 'o', t1, t2]
+        elif out[-1] == 1:
+            self._tree = ['o', t1,'o', t2]
+        else:
+            self._tree = ['o',t1, t2, 'o']
+
+    def random_4_val(n):
+        t = BinaryTrees(n).random_element()
+        b = [randint(0,2) for _ in range(n)]
+        return eulerian_tree(t,b)
+
+
+
+    
+    
+            
+
+
+
+
+
+
+
+
+
 
 
 
