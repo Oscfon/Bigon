@@ -196,6 +196,8 @@ class eulerian_tree:
                 current = sub_tree[-1]
                 sub_tree.pop()
                 h -= 1
+                if h<0:
+                    raise ValueError("The tree is not balanced")
             elif corner[-1] == 0:
                 out.append(b.pop())
                 if out[-1] == 0:
@@ -236,7 +238,13 @@ class eulerian_tree:
     def random_4_val(n):
         t = BinaryTrees(n).random_element()
         b = [randint(0,2) for _ in range(n)]
-        return eulerian_tree(t,b)
+        res = None
+        while res == None:
+            try: 
+                res = eulerian_tree(t,b)
+            except ValueError:
+                b = [randint(0,2) for _ in range(n)]
+        return res
 
 
 
