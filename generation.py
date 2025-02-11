@@ -4,6 +4,8 @@ r"""
 """
 
 from surface_dynamics.misc.permutation import perm_invert
+from surface_dynamics import FatGraph
+
 
 
 def ed_perm(k):
@@ -269,6 +271,7 @@ class Decored_blossoming_tree:
         corner = [0]
         w_index = 1
         h = 1
+        size = 0
         while current != t or corner[-1] != len(t):
             if not bool(current):
                 if w_index == len(w):
@@ -282,14 +285,14 @@ class Decored_blossoming_tree:
                     left_tree.append(['c',dec])
                     h -= 1
                     w_index+=1
+                    size += 1
                 else:
                     left_tree.append(['o'])
                     h += 1
                     w_index+=1
                 corner.pop()
                 corner[-1] += 1
-                current = sub_tree[-1]
-                sub_tree.pop()
+                current = sub_tree.pop()
                 
             elif corner[-1] < len(current):
                 sub_tree.append(current)
@@ -303,18 +306,73 @@ class Decored_blossoming_tree:
                 left_tree.append(l)
                 corner.pop()
                 corner[-1] += 1
-                current = sub_tree[-1]
-                sub_tree.pop()
+                current = sub_tree.pop()
+                size += 1
         left_tree.append(['o'])
         left_tree.reverse()
         self._tree = left_tree
+        self._m = size
 
-    
-    
+    def to_Fat_graph(self):
+        r"""
+            Convert the blossoming to FatGraph using http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf
+        """
+        vp = [None for i in range(2*self._m)]
+        opening_edges = []
+        free_index = 0
+        last = [0]
+        first = [0]
+        current = self._tree
+        sub_tree = []
+        corner = [0]
+        while current != self._tree or corner[-1] != len(self._tree):
+            if current[0] == 'c':
+                dec = current[1]
+                ope_edg = opening_edges[-dec-1]
+                vp[last[-1]] = ope_edg
+                opening_edges.remove(ope_edg)
+                last[-1] = ope_edg
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree.pop()
             
-
-
-
+            elif current[0] == 'o':
+                vp[last[-1]] = 2*free_index
+                last[-1] = 2*free_index
+                opening_edges.append(2*free_index+1)
+                free_index += 1
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree.pop()
+                
+            elif corner[-1] == 0:
+                first.append(last[-1])
+                if current[0][0] != 'o' and current[0][0] != 'c':
+                    vp[last[-1]] = 2*free_index
+                    last[-1] = 2*free_index
+                    last.append(2*free_index + 1)
+                    free_index += 1
+                sub_tree.append(current)
+                current = current[corner[-1]]
+                corner.append(0)
+            
+            elif corner[-1] < len(current):
+                if current[corner[-1]][0] != 'o' and current[corner[-1]][0] != 'c':
+                    vp[last[-1]] = 2*free_index
+                    last[-1] = 2*free_index
+                    last.append(2*free_index + 1)
+                    free_index += 1
+                sub_tree.append(current)
+                current = current[corner[-1]]
+                corner.append(0)
+            else:
+                vp[last.pop()] = first.pop()
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree.pop()
+        vp[last.pop()] = first.pop()
+        print(vp)
+        return FatGraph(vp=vp)
 
 
 
