@@ -252,6 +252,15 @@ class Eulerian_tree:
                 b = [randint(0,2) for _ in range(n)]
         return res
 
+def nb_leaves(t):
+    if not(bool(t)):
+        return 1
+    else:
+        res = 0
+        for elt in t:
+            res += nb_leaves(elt)
+        return res
+
 
 class Decored_blossoming_tree:
     """r
@@ -263,6 +272,7 @@ class Decored_blossoming_tree:
         specifize = False
         if offset != None: 
             specifize = True
+            off_index = 0
             if len(offset) != len(w)//2:
                 raise ValueError("Not the same lenght of offset than the number of closing leaves.")
         current = t
@@ -279,9 +289,10 @@ class Decored_blossoming_tree:
                 elif w[w_index]==0:
                     dec = randint(0,h-1)
                     if specifize:
-                        if offset[w_index]>h-1:
+                        if offset[off_index]>h-1:
                             raise ValueError("Too big offset.")
-                        dec = offset[w_index]
+                        dec = offset[off_index]
+                        off_index += 1
                     left_tree.append(['c',dec])
                     h -= 1
                     w_index+=1
@@ -308,9 +319,9 @@ class Decored_blossoming_tree:
                 corner[-1] += 1
                 current = sub_tree.pop()
                 size += 1
-        left_tree.append(['o'])
-        left_tree.reverse()
-        self._tree = left_tree
+        if w_index < len(w):
+            raise ValueError("The Dyck word is too long")
+        self._tree = [['o']]+left_tree
         self._m = size
 
     def to_Fat_graph(self):
@@ -371,7 +382,6 @@ class Decored_blossoming_tree:
                 corner[-1] += 1
                 current = sub_tree.pop()
         vp[last.pop()] = first.pop()
-        print(vp)
         return FatGraph(vp=vp)
 
 
