@@ -180,7 +180,11 @@ r"""
     Il faut un arbre eulérien ie : tous les sommets ont degré pair (2k) avec k-1 feuilles
 """
 
-class eulerian_tree:
+class Eulerian_tree:
+    """r
+        Class of eulerian tree with the implemented height function 
+    """
+    
     def __init__(self,t,b): # t is a binary tree and b is the corner in which is the out-leaf on each node.
         current = t
         left_tree = []
@@ -247,6 +251,63 @@ class eulerian_tree:
         return res
 
 
+class Decored_blossoming_tree:
+    """r
+        Class of tree with a decoration to each point corresponding to the off-set 
+    """
+
+    def __init__(self, t, w, offset = None): 
+        # t is a tree and w a Dyck word with length the number of leaves plus one of t. The offset is the list of decorations. If offset is None, the decorations are random
+        specifize = False
+        if offset != None: 
+            specifize = True
+            if len(offset) != len(w)//2:
+                raise ValueError("Not the same lenght of offset than the number of closing leaves.")
+        current = t
+        left_tree = []
+        sub_tree = []
+        corner = [0]
+        w_index = 1
+        h = 1
+        while current != t or corner[-1] != len(t):
+            if not bool(current):
+                if w_index == len(w):
+                    raise ValueError("The Dyck word is too short.")
+                elif w[w_index]==0:
+                    dec = randint(0,h-1)
+                    if specifize:
+                        if offset[w_index]>h-1:
+                            raise ValueError("Too big offset.")
+                        dec = offset[w_index]
+                    left_tree.append(['c',dec])
+                    h -= 1
+                    w_index+=1
+                else:
+                    left_tree.append(['o'])
+                    h += 1
+                    w_index+=1
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree[-1]
+                sub_tree.pop()
+                
+            elif corner[-1] < len(current):
+                sub_tree.append(current)
+                current = current[corner[-1]]
+                corner.append(0)
+            else:
+                l = []
+                for i in range(len(current)):
+                    l.append(left_tree.pop())
+                l.reverse()
+                left_tree.append(l)
+                corner.pop()
+                corner[-1] += 1
+                current = sub_tree[-1]
+                sub_tree.pop()
+        left_tree.append(['o'])
+        left_tree.reverse()
+        self._tree = left_tree
 
     
     
