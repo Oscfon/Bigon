@@ -4,8 +4,7 @@ Generation of FatGraph starting from small examples. We ensure small operations 
 
 from surface_dynamics.misc.permutation import perm_invert
 from surface_dynamics import FatGraph
-
-
+from tree_generation import classical_generation
 
 def ed_perm(k):
     if k%2==1:
@@ -171,7 +170,7 @@ def g_n_init(g,n): #create a g genus map with n vertex
         
 
 r"""
-    Sampling of eulerian maps using Fusy-Guitter bijection (http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf)
+Sampling of eulerian maps using Fusy-Guitter bijection (http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf)
 """
 
 def incr_l(l,node):
@@ -213,7 +212,7 @@ class Decorated_blossoming_tree:
         """
 
         if isinstance(data, tuple) and len(data) == 3:
-            if isinstance(data[0], OrderedTree) and isinstance(data[1], (list, DyckWord)) and isinstance(data[2], list):
+            if isinstance(data[0], (OrderedTree)) and isinstance(data[1], (list, DyckWord)) and isinstance(data[2], list):
                 self._tree = data[0]
                 self._word = list(data[1])
                 self._offset = data[2]
@@ -393,10 +392,41 @@ class Decorated_blossoming_tree:
         vp[last.pop()] = first.pop()
         return FatGraph(vp=vp)
 
+    def random_k_val(n,k,planar=False):
+        r"""
+        Sample randomly a blossoming tree with n nodes of degree 2k
+        """
+        l = []
+        for i in range(2*k-1):
+            l.append(0)
+        l.append(n)
+        t = classical_generation(l)[0]
+        m = [0]
+        t.iterative_post_order_traversal(lambda node: incr_l_leaf(m,node))
+        leaves = m[0]+1
+        opening_leaves = leaves//2
+        w = DyckWords(opening_leaves).random_element()
+        if planar:
+            off = [0 for _ in range(leaves//2)]
+        else:
+            h = 0
+            off = []
+            for elt in w:
+                if elt==1:
+                    h += 1
+                elif elt==0:
+                    h -= 1
+                    off.append(randint(0,h))
+        res = Decorated_blossoming_tree((t,w,off))
+        res._check()
+        return res
+        
+        
 
-    def random_4_val(n,planar=False):
+    def random_4_val_reject(n,planar=False):
         r"""
         Sample randomly an eulerian tree with n nodes of degree 4.
+        This work by reject.
         """
         t = BinaryTrees(n).random_element()
         b = [randint(0,1)]+[randint(0,2) for _ in range(n-1)]
