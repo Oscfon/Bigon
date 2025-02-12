@@ -1,6 +1,5 @@
 r"""
-    Generation of FatGraph starting from small examples. We ensure small operations to augment the size of the FatGraph.
-    All of this FatGraph are 4-valency FatGraph.
+Generation of FatGraph starting from small examples. We ensure small operations to augment the size of the FatGraph.
 """
 
 from surface_dynamics.misc.permutation import perm_invert
@@ -173,192 +172,194 @@ def g_n_init(g,n): #create a g genus map with n vertex
 
 r"""
     Sampling of eulerian maps using Fusy-Guitter bijection (http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf)
-
-
-
-    Note de programmation : Tirer un arbre, un mot de Dick -> blossoming tree + une fonction de matching sur chaque arête entrante !
-    
-    Le degré des nœuds de l'arbre est le degré des sommets de la carte !
-    Il faut un arbre eulérien ie : tous les sommets ont degré pair (2k) avec k-1 feuilles
 """
 
-class Eulerian_tree:
-    """r
-        Class of eulerian tree with the implemented height function 
-    """
-    
-    def __init__(self,t,b): # t is a binary tree and b is the corner in which is the out-leaf on each node.
-        current = t
-        left_tree = []
-        sub_tree = []
-        corner = [0]
-        h = 1
-        out = []
-        while corner[-1] != 2 or current != t:
-            if current.is_empty():
-                left_tree.append(['c',h])
-                corner.pop()
-                corner[-1] += 1
-                current = sub_tree[-1]
-                sub_tree.pop()
-                h -= 1
-                if h<0:
-                    raise ValueError("The tree is not balanced")
-            elif corner[-1] == 0:
-                out.append(b.pop())
-                if out[-1] == 0:
-                    h += 1
-                sub_tree.append(current)
-                current = current[0]
-                corner.append(0)
-            elif corner[-1] == 1:
-                if out[-1] == 1:
-                    h += 1
-                sub_tree.append(current)
-                current = current[1]
-                corner.append(0)
-            else:
+class Decorated_blossoming_tree:
+
+    def __init__(self, data): 
+        r"""
+        Return a tree and the list of the decoration on the leaves corresponding to the opening, closing and normal leaves.
+        The closing leaves also have an offset.
+        INPUT:
+        - data -- Can be any one of the following:
+            - a tuple containing the tree (as an ordered tree), the list of decorations as a DyckWord with None corresponding to unused leaves and the offset associated to each closing leaves
+            - a tuple containing the tree (as an binary tree), the list of the position of the closing leaves and the offset associated to each closing leaves
+
+        EXAMPLES::
+
+            sage: A = Decorated_blossoming_tree((OrderedTree([[],[]]),[1,0,None],[0]))
+            sage: A._tree
+            [[],[]]
+            sage: A._word
+            [1,0,None]
+            sage: A._offset
+            [0]
+        
+            sage: B = Decorated_blossoming_tree((BinaryTree([[],[]]),[0,1,0],[0,0,1,0]))
+            sage: B._tree
+            [[], [[], [], []], [[], [], []]]
+            sage: B._word
+            [1,1,0,0,1,1,0,0]
+            sage: B._offset
+            [0,0,1,0]
+        """
+
+        if isinstance(data, tuple) and len(data) == 3:
+            if isinstance(data[0], OrderedTree) and isinstance(data[1], (list, DyckWord)) and isinstance(data[2], list):
+                self._tree = data[0]
+                self._word = list(data[1])
+                self._offset = data[2]
+
+            elif isinstance(data[0], BinaryTree) and isinstance(data[1], list) and isinstance(data[2], list):
+                self._offset = data[2]
+                w = [1]
+                current = data[0]
+                sub_tree = []
+                corner = [0]
+                left_tree = []
+                node = 0
+                out = []
+                while corner[-1] != 2 or current != data[0]:
+                    if current.is_empty():
+                        corner.pop()
+                        corner[-1] += 1
+                        current = sub_tree.pop()
+                        w.append(0)
+                        left_tree.append(OrderedTree([]))
+                    elif corner[-1] == 0:
+                        out.append(data[1][node])
+                        node += 1
+                        if out[-1] == 0:
+                            w.append(1)
+                            left_tree.append(OrderedTree([]))
+                        sub_tree.append(current)
+                        current = current[0]
+                        corner.append(0)
+                    elif corner[-1] == 1:
+                        if out[-1] == 1:
+                            w.append(1)
+                            left_tree.append(OrderedTree([]))
+                        sub_tree.append(current)
+                        current = current[1]
+                        corner.append(0)
+                    else:
+                        if out[-1] == 2:
+                            w.append(1)
+                            left_tree.append(OrderedTree([]))
+                        t3 = left_tree.pop()
+                        t2 = left_tree.pop()
+                        t1 = left_tree.pop()
+                        left_tree.append(OrderedTree([t1,t2,t3]))
+                        out.pop()
+                        corner.pop()
+                        corner[-1] += 1
+                        current = sub_tree.pop()
+                if out[-1] == 2:
+                    w.append(1)
+                    left_tree.append(OrderedTree([]))
+                t3 = left_tree.pop()
                 t2 = left_tree.pop()
                 t1 = left_tree.pop()
-                if out[-1] == 0:
-                    left_tree.append(['o',t1,t2])
-                elif out[-1] == 1:
-                    left_tree.append([t1,'o',t2])
-                else:
-                    left_tree.append([t1,t2,'o'])
-                    h += 1
-                out.pop()
-                corner.pop()
-                corner[-1] += 1
-                current = sub_tree[-1]
-                sub_tree.pop()
-        t2 = left_tree.pop()
-        t1 = left_tree.pop()
-        if out[-1] == 0:
-            self._tree = ['o', 'o', t1, t2]
-        elif out[-1] == 1:
-            self._tree = ['o', t1,'o', t2]
+                self._tree = OrderedTree([t1,t2,t3])
+                self._word = w
         else:
-            self._tree = ['o',t1, t2, 'o']
-
-    def random_4_val(n):
-        t = BinaryTrees(n).random_element()
-        b = [randint(0,2) for _ in range(n)]
-        res = None
-        while res == None:
-            try: 
-                res = eulerian_tree(t,b)
-            except ValueError:
-                b = [randint(0,2) for _ in range(n)]
-        return res
-
-def nb_leaves(t):
-    if not(bool(t)):
-        return 1
-    else:
-        res = 0
-        for elt in t:
-            res += nb_leaves(elt)
-        return res
+            raise ValueError("The data has not a good type.")
 
 
-class Decored_blossoming_tree:
-    """r
-        Class of tree with a decoration to each point corresponding to the off-set 
-    """
+    def _check(self):
+        closing_leaves = 0
+        opening_leaves = 0
+        for elt in self._word:
+            if elt == 0:
+                closing_leaves += 1
+            elif elt == 1:
+                opening_leaves += 1
+        l = []
+        self._tree.iterative_post_order_traversal(lambda node: l.append(0) if not(bool(node)) else None)
+        leaves = len(l)
+        if leaves+1 != len(self._word):
+            raise ValueError("Not the same value of leaves and decorations on the leaves.")
+        elif opening_leaves != closing_leaves:
+            raise ValueError("Not the same value of opening and closing leaves.")
+        elif opening_leaves != len(self._offset):
+            raise ValueError("Not the same value of closing leaves and offset on this leaves.")
 
-    def __init__(self, t, w, offset = None): 
-        # t is a tree and w a Dyck word with length the number of leaves plus one of t. The offset is the list of decorations. If offset is None, the decorations are random
-        specifize = False
-        if offset != None: 
-            specifize = True
-            off_index = 0
-            if len(offset) != len(w)//2:
-                raise ValueError("Not the same lenght of offset than the number of closing leaves.")
-        current = t
-        left_tree = []
-        sub_tree = []
-        corner = [0]
-        w_index = 1
-        h = 1
-        size = 0
-        while current != t or corner[-1] != len(t):
-            if not bool(current):
-                if w_index == len(w):
-                    raise ValueError("The Dyck word is too short.")
-                elif w[w_index]==0:
-                    dec = randint(0,h-1)
-                    if specifize:
-                        if offset[off_index]>h-1:
-                            raise ValueError("Too big offset.")
-                        dec = offset[off_index]
-                        off_index += 1
-                    left_tree.append(['c',dec])
-                    h -= 1
-                    w_index+=1
-                    size += 1
-                else:
-                    left_tree.append(['o'])
-                    h += 1
-                    w_index+=1
-                corner.pop()
-                corner[-1] += 1
-                current = sub_tree.pop()
-                
-            elif corner[-1] < len(current):
-                sub_tree.append(current)
-                current = current[corner[-1]]
-                corner.append(0)
-            else:
-                l = []
-                for i in range(len(current)):
-                    l.append(left_tree.pop())
-                l.reverse()
-                left_tree.append(l)
-                corner.pop()
-                corner[-1] += 1
-                current = sub_tree.pop()
-                size += 1
-        if w_index < len(w):
-            raise ValueError("The Dyck word is too long")
-        self._tree = [['o']]+left_tree
-        self._m = size
+        height = 0
+        index = 0
+        for elt in self._word:
+            if elt==0:
+                if height<=0:
+                    raise ValueError("The decoration on the leaves is not a Dyck word.")
+                elif self._offset[index]<0 or self._offset[index]>=height:
+                    raise ValueError("The offset on the {} closing leaf is bigger of the height or smaller than 0.".format(index))
+                index += 1
+                height -= 1
+            elif elt==1:
+                height += 1
+
 
     def to_Fat_graph(self):
         r"""
-            Convert the blossoming to FatGraph using http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf
+        Convert the blossoming to FatGraph using http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf
+
+        EXAMPLES::
+
+            sage: A = Decorated_blossoming_tree((BinaryTree([[],[]]),[1,1,1],[0,0,0,0]))
+            sage: A._check()
+            sage: G = A.to_Fat_graph()
+            sage: G
+            FatGraph('(0,2,6,8)(1,4,5,3)(7,10,11,9)', '(0,3)(1,8,11,7,2,5)(4)(6,9)(10)')
+            sage: G.genus()
+            0
+
+            sage: B = Decorated_blossoming_tree((BinaryTree([[],[]]),[0,0,1],[1,1,0,0]))
+            sage: B._check()
+            sage: G2 = B.to_Fat_graph()
+            sage: G2
+            FatGraph('(0,2,4,8)(1,5,6,3)(7,10,11,9)', '(0,3)(1,8,11,7,5,2,6,9,4)(10)')
+            sage: G2.genus()
+            1
         """
-        vp = [None for i in range(2*self._m)]
-        opening_edges = []
-        free_index = 0
+        l = 0
+        self._tree.iterative_post_order_traversal(lambda node: l+=1)
+        nodes = l
+        m = nodes-len(self._offset)
+        vp = [None for i in range(2*m)]
+        opening_edges = [1]
+        free_index = 1
         last = [0]
         first = [0]
         current = self._tree
+        word_index = 1
+        offset_index = 0
         sub_tree = []
         corner = [0]
         while current != self._tree or corner[-1] != len(self._tree):
-            if current[0] == 'c':
-                dec = current[1]
-                ope_edg = opening_edges[-dec-1]
-                vp[last[-1]] = ope_edg
-                opening_edges.remove(ope_edg)
-                last[-1] = ope_edg
-                corner.pop()
-                corner[-1] += 1
-                current = sub_tree.pop()
-            
-            elif current[0] == 'o':
-                vp[last[-1]] = 2*free_index
-                last[-1] = 2*free_index
-                opening_edges.append(2*free_index+1)
-                free_index += 1
+            if not(bool(current)):
+                if self._word[word_index] == 0:
+                    ope_edg = opening_edges[-1-self._offset[offset_index]]
+                    vp[last[-1]] = ope_edg
+                    opening_edges.remove(ope_edg)
+                    last[-1] = ope_edg
+                    offset_index += 1
+                elif self._word[word_index] == 1:
+                    vp[last[-1]] = 2*free_index
+                    last[-1] = 2*free_index
+                    opening_edges.append(2*free_index+1)
+                    free_index += 1
+                else:
+                    vp[last[-1]] = 2*free_index
+                    last[-1] = 2*free_index
+                    vp[2*free_index+1] = 2*free_index+1
+                    free_index += 1
+                word_index += 1
                 corner.pop()
                 corner[-1] += 1
                 current = sub_tree.pop()
                 
             elif corner[-1] == 0:
                 first.append(last[-1])
-                if current[0][0] != 'o' and current[0][0] != 'c':
+                if bool(current[0]):
                     vp[last[-1]] = 2*free_index
                     last[-1] = 2*free_index
                     last.append(2*free_index + 1)
@@ -368,7 +369,7 @@ class Decored_blossoming_tree:
                 corner.append(0)
             
             elif corner[-1] < len(current):
-                if current[corner[-1]][0] != 'o' and current[corner[-1]][0] != 'c':
+                if bool(current[corner[-1]]):
                     vp[last[-1]] = 2*free_index
                     last[-1] = 2*free_index
                     last.append(2*free_index + 1)
@@ -385,9 +386,69 @@ class Decored_blossoming_tree:
         return FatGraph(vp=vp)
 
 
+    def random_4_val(n,planar=False):
+        r"""
+        Sample randomly an eulerian tree with n nodes of degree 4.
+        """
+        t = BinaryTrees(n).random_element()
+        b = [randint(0,1)]+[randint(0,2) for _ in range(n-1)]
+        off = [0 for _ in range(n+1)]
+        res = None
+        work = True
+        while work:
+            try: 
+                res = Decorated_blossoming_tree((t,b,off))
+                res._check()
+                work = False
+            except ValueError:
+                b = [randint(0,1)]+[randint(0,2) for _ in range(n-1)]
+        h = 0
+        if not planar:
+            off = []
+            for elt in res._word:
+                if elt == 1:
+                    h += 1
+                else:
+                    h -= 1
+                    off.append(randint(0,h))
+        res = Decorated_blossoming_tree((t,b,off))
+        res._check()
+        return res
+        
 
+    def random_element(n, zero_vertex=False, planar=False):
+        r"""
+        Sample randomly a tree, a Dyck word on the leaves of this tree (including the root) and an offset for the closing leaves.
+        """
 
-
+        t = OrderedTrees(n).random_element()
+        l = []
+        t.iterative_post_order_traversal(lambda node: l.append(0) if not(bool(node)) else None)
+        leaves = len(l)+1
+        nb_zero = 0
+        if zero_vertex:
+            nb_zero = randint(0,leaves//2-1)
+        opening_leaves = leaves//2-nb_zero
+        nb_zero += leaves%2
+        w = DyckWords(opening_leaves).random_element()
+        word = list(w)
+        for _ in range(nb_zero):
+            index = randint(1,len(word))
+            word = word[:index]+[None]+word[index:]
+        if planar:
+            off = [0 for _ in range(leaves//2)]
+        else:
+            h = 0
+            off = []
+            for elt in word:
+                if elt==1:
+                    h += 1
+                elif elt==0:
+                    h -= 1
+                    off.append(randint(0,h))
+        res = Decorated_blossoming_tree((t,word,off))
+        res._check()
+        return res
 
 
 
