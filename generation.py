@@ -174,6 +174,14 @@ r"""
     Sampling of eulerian maps using Fusy-Guitter bijection (http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf)
 """
 
+def incr_l(l,node):
+    l[0] += 1
+
+def incr_l_leaf(l,node):
+    if not(bool(node)):
+        l[0] += 1
+
+
 class Decorated_blossoming_tree:
 
     def __init__(self, data): 
@@ -274,10 +282,10 @@ class Decorated_blossoming_tree:
                 closing_leaves += 1
             elif elt == 1:
                 opening_leaves += 1
-        l = []
-        self._tree.iterative_post_order_traversal(lambda node: l.append(0) if not(bool(node)) else None)
-        leaves = len(l)
-        if leaves+1 != len(self._word):
+        l = [0]
+        self._tree.iterative_post_order_traversal(lambda node: incr_l_leaf(l,node))
+        leaves = l[0]+1
+        if leaves != len(self._word):
             raise ValueError("Not the same value of leaves and decorations on the leaves.")
         elif opening_leaves != closing_leaves:
             raise ValueError("Not the same value of opening and closing leaves.")
@@ -320,9 +328,9 @@ class Decorated_blossoming_tree:
             sage: G2.genus()
             1
         """
-        l = 0
-        self._tree.iterative_post_order_traversal(lambda node: l+=1)
-        nodes = l
+        l = [0]
+        self._tree.iterative_post_order_traversal(lambda node: incr_l(l,node))
+        nodes = l[0]
         m = nodes-len(self._offset)
         vp = [None for i in range(2*m)]
         opening_edges = [1]
@@ -422,9 +430,9 @@ class Decorated_blossoming_tree:
         """
 
         t = OrderedTrees(n).random_element()
-        l = []
-        t.iterative_post_order_traversal(lambda node: l.append(0) if not(bool(node)) else None)
-        leaves = len(l)+1
+        l = [0]
+        t.iterative_post_order_traversal(lambda node: incr_l_leaf(l,node))
+        leaves = l[0]+1
         nb_zero = 0
         if zero_vertex:
             nb_zero = randint(0,leaves//2-1)
