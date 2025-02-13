@@ -392,7 +392,7 @@ class Decorated_blossoming_tree:
         vp[last.pop()] = first.pop()
         return FatGraph(vp=vp)
 
-    def random_k_val(n,k,planar=False):
+    def random_2k_val(n,k,planar=False):
         r"""
         Sample randomly a blossoming tree with n nodes of degree 2k
         """
@@ -401,6 +401,35 @@ class Decorated_blossoming_tree:
             l.append(0)
         l.append(n)
         t = classical_generation(l)[0]
+        m = [0]
+        t.iterative_post_order_traversal(lambda node: incr_l_leaf(m,node))
+        leaves = m[0]+1
+        opening_leaves = leaves//2
+        w = DyckWords(opening_leaves).random_element()
+        if planar:
+            off = [0 for _ in range(leaves//2)]
+        else:
+            h = 0
+            off = []
+            for elt in w:
+                if elt==1:
+                    h += 1
+                elif elt==0:
+                    h -= 1
+                    off.append(randint(0,h))
+        res = Decorated_blossoming_tree((t,w,off))
+        res._check()
+        return res
+
+    def random_list_val(l, planar = False):
+        r"""
+        Sample randomly a blossoming tree with n nodes with list of degrees given by l, l[i] being the number of nodes of degree 2(i+1)
+        """
+        new_l = []
+        for i in range(len(l)):
+            new_l.append(0)
+            new_l.append(l[i])
+        t = classical_generation(new_l)[0]
         m = [0]
         t.iterative_post_order_traversal(lambda node: incr_l_leaf(m,node))
         leaves = m[0]+1
