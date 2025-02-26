@@ -1,11 +1,19 @@
 r"""
 Generation of trees (and forest) using the linear time algorithm from Alonso-Rémy-Schott : https://inria.hal.science/inria-00073765/document
+
+The method takes a list of patterns and the number of occurences of all the patterns and generates a forest which respects the pattern constraint.
+The pattern are coded using where 'x' denotes a vertex, 'y' denotes a classical edge, 'f' a semi-edge and 'o' a multi-edge.
+The order of coding is defined as follow : if v is a vertex with children v_1, ..., v_p and edges a_1, ..., a_q then the coding of v will be :
+t(v_1)t(v_2)...t(v_p)x t(a_p)...t(a_1)
 """
 
 from sage.misc.prandom import randint
 from sage.combinat.ordered_tree import OrderedTree
 
 def mix(l):
+    r"""
+    Take a list of occurences and create uniformly at random a list res of integer where i appears exactly l[i] times.
+    """
     l_comp = []
     for i in range(len(l)):
         for j in range(l[i]):
@@ -18,6 +26,17 @@ def mix(l):
     return res
 
 def replace_patern(mix_list,pattern_words):
+    r"""
+    Take a list of index and the corresponding patterns and create a word obtained by the concatenation of this pattern.
+
+    EXAMPLES::
+
+        sage: mix_list = [1, 0, 1, 1]
+        sage: pattern_word = ["yx", "ox"]
+        sage: replace_patern(mix_list,pattern_word)
+        ['(', ')', 'x', 'y', 'x', '(', ')', 'x', '(', ')', 'x']
+        
+    """
     res = []
     for elt in mix_list:
         for letter in pattern_words[elt]:
@@ -30,6 +49,9 @@ def replace_patern(mix_list,pattern_words):
 
 
 def missing_edges(l,pattern_words,p):
+    r"""
+    Take the list of patterns, the number of occurences of this patterns and the number of trees in the forest and compute the number of edges that must be added to have a correct forest.
+    """
     n = 0
     e = 0
     c = 0
@@ -63,6 +85,9 @@ def missing_edges(l,pattern_words,p):
 
 
 def adding_edges(nb_edges,w,pos_d):
+    r"""
+    Take a word w that encodes a tree and pos_d the list of positions of multi-edges in w and add nb_edges edge to w.
+    """
     number_edges = nb_edges
     pos = 0
     d = len(pos_d)
@@ -79,6 +104,9 @@ def adding_edges(nb_edges,w,pos_d):
 
 
 def cyclic_permutation(w,p):
+    r"""
+    Take a word w that encodes the forest and p the number of tree in the forest and perform a cyclic permutation on w such that the word begins by a well formed tree.
+    """
     pos = 0
     height = 0
     w_min = 0
@@ -113,6 +141,9 @@ def cyclic_permutation(w,p):
     return res
 
 def to_forest(w):
+    r"""
+    Convert a word into a forest seen as a list of trees.
+    """
     globalstack = []
     patternstack = []
     pos = 0
@@ -140,28 +171,10 @@ def to_forest(w):
         res.append(OrderedTree(elt))
     return res
 
-
-def star(k):
-    l = ['[','x']
-    for _ in range(k):
-        l.append('f')
-    l.append(']')
-    return l
-
-def classical_pattern(l):
-    patterns = []
-    nb_pat = []
-    nb_leaves = 1
-    for k in range(len(l)):
-        if l[k] != 0:
-            patterns.append(star(k))
-            nb_pat.append(l[k])
-            nb_leaves += l[k]*(k-1)
-    patterns.append(star(0))
-    nb_pat.append(nb_leaves)
-    return nb_pat, patterns
-    
 def forest_generation(nb_pat, patterns, nb_trees):
+    r"""
+    Generate a forest of nb_trees trees where the pattern patterns[i] appears exactly nb_pat[i] times in the forest. 
+    """
     l = mix(nb_pat)
     w = replace_patern(l,patterns)
     me = missing_edges(nb_pat,patterns,nb_trees)
@@ -173,8 +186,51 @@ def forest_generation(nb_pat, patterns, nb_trees):
         w = adding_edges(me,w,pos_d)
     w = cyclic_permutation(w,nb_trees)
     return to_forest(w)
+
+
+def star(k):
+    r"""
+    Return the pattern corresponding to a star with k semi-edges.
+
+    EXAMPLES::
+
+        sage: star(3)
+        ['[', 'x', 'f', 'f', 'f', ']']
+    """
+    l = ['[','x']
+    for _ in range(k):
+        l.append('f')
+    l.append(']')
+    return l
+
+def classical_pattern(l):
+    r"""
+    Compute the list of patterns and the list of occurences corresponding to a tree with l[i] nodes of degrees i+1.
+
+    EXAMPLES::
+
+        sage: classical_pattern([0,12])
+        ([12, 13], [['[', 'x', 'f', 'f', ']'], ['[', 'x', ']']])
+        sage: classical_pattern([1,1])
+        ([1, 1, 2], [['[', 'x', 'f', ']'], ['[', 'x', 'f', 'f', ']'], ['[', 'x', ']']])
+        sage: 
+    """
+    patterns = []
+    nb_pat = []
+    nb_leaves = 1
+    for k in range(len(l)):
+        if l[k] != 0:
+            patterns.append(star(k+1))
+            nb_pat.append(l[k])
+            nb_leaves += l[k]*(k)
+    patterns.append(star(0))
+    nb_pat.append(nb_leaves)
+    return nb_pat, patterns
     
 def classical_generation(l):
+    r"""
+    Generate uniformly at random a tree with l[i] nodes of degrees i+1.
+    """
     (a,b)=classical_pattern(l)
     return forest_generation(a,b,1)
     

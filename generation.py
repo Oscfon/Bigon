@@ -12,7 +12,29 @@ def ed_perm(k):
     else:
         return k+1
 
-def flip(vp, fp, h): #take the two permutations of the FatGraph and a semi-edge and "flip" the vertex that end the edge
+def flip(vp, fp, h):
+    r"""
+    Perform the flip of the semi-edge h on a 4-valency FatGraph.
+    The FatGraph is given as the vertex and the face permutation.
+
+    More precisely, it does the following transformation : 
+      |    |                  |  |
+      | h  |                  | / 
+    - x -- x –    becomes   - x - x -
+      |    |                    / |
+      |    |                   |  |
+
+      
+    EXAMPLES::
+
+        sage: vp=[2, 7, 4, 1, 6, 3, 0, 5]
+        sage: fp=[3, 6, 5, 0, 7, 2, 1, 4]
+        sage: flip(vp,fp,0)
+        sage: vp
+        [3, 6, 4, 2, 0, 1, 7, 5]
+        sage: fp
+        [5, 4, 0, 3, 7, 2, 6, 1]
+    """
     if len(vp)-1<h:
         raise ValueError("This edge doesn't belong to this graph")
     if fp[h] != h:
@@ -42,6 +64,30 @@ def flip(vp, fp, h): #take the two permutations of the FatGraph and a semi-edge 
 
 
 def three_three(vp,fp,h):
+    r"""
+    Perform on a triangular face given by the semi-edge h on a 4-valency FatGraph.
+    The FatGraph is given as the vertex and the face permutation.
+
+    More precisely, it does the following transformation : 
+
+          \ /                             \       /
+           x                               x --- x
+         /   \           becomes          / \   / \
+      - x --- x -                       -     x     -
+       /       \                             / \
+
+      
+    EXAMPLES::
+
+        sage: vp=[2, 7, 4, 9, 6, 3, 0, 10, 1, 11, 8, 5]
+        sage: fp=[8, 6, 5, 0, 11, 2, 1, 4, 3, 10, 9, 7]
+        sage: three_three(fp,vp,0)
+        sage: vp
+        [2, 10, 6, 9, 3, 4, 7, 0, 1, 5, 11, 8]
+        sage: fp
+        [8, 7, 4, 0, 9, 5, 6, 2, 3, 11, 10, 1]
+
+    """
     if len(vp)-1<h:
         raise ValueError("This edge doesn't belong to this graph")
     if fp[h] == h:
@@ -83,7 +129,18 @@ def three_three(vp,fp,h):
     fp[j2] = b1
     
 
-def g_n_init(g,n): #create a g genus map with n vertex
+def g_n_init(g,n):
+    r"""
+    Create a generic 4-valency map of genus g on n vertices.
+
+    EXAMPLES::
+
+        sage: g_n_init(1,2)
+        ([5, 7, 0, 1, 3, 6, 2, 4], [3, 2, 4, 6, 0, 7, 1, 5])
+        sage: g_n_init(1,3)
+        ([5, 7, 0, 1, 9, 6, 2, 10, 11, 8, 3, 4], [3, 2, 10, 6, 0, 11, 1, 5, 4, 9, 8, 7])
+
+    """
     if n < 2:
         raise ValueError("Not implemented yet, sorry !")
     if n < 2*g:
@@ -182,6 +239,14 @@ def incr_l_leaf(l,node):
 
 
 class Decorated_blossoming_tree:
+    r"""
+    Class of trees with a decoration on the leaves to perform the bijection with map.
+
+    For A a Decorated_blossoming_tree :
+    A._tree is the underlying OrderedTree.
+    A._word is the decoration of the leaves in contour order with 0 being a closing leaf, 1 an opening one and None being a normal leaf.
+    A._offset is the offset on each closing leaf.
+    """
 
     def __init__(self, data): 
         r"""
@@ -274,6 +339,9 @@ class Decorated_blossoming_tree:
 
 
     def _check(self):
+        r"""
+        Check whether the Decorated_blossoming_tree correspond to a combinatorial map.
+        """
         closing_leaves = 0
         opening_leaves = 0
         for elt in self._word:
@@ -307,7 +375,7 @@ class Decorated_blossoming_tree:
 
     def to_Fat_graph(self):
         r"""
-        Convert the blossoming to FatGraph using http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf
+        Convert the blossoming tree to FatGraph using http://igm.univ-mlv.fr/~fusy/Articles/AllGenus.pdf
 
         EXAMPLES::
 
@@ -394,10 +462,14 @@ class Decorated_blossoming_tree:
 
     def random_2k_val(n,k,planar=False):
         r"""
-        Sample randomly a blossoming tree with n nodes of degree 2k
+        Sample randomly a blossoming tree with n nodes of degree 2k.
+
+        It first generate an OrderedTree with n nodes of constant degree 2k using classical generation.
+        Then it gives a random decoration to all the leaves.
+        Finally it gives a random offset to all closing leaves.
         """
         l = []
-        for i in range(2*k-1):
+        for i in range(2*k-2):
             l.append(0)
         l.append(n)
         t = classical_generation(l)[0]
@@ -427,8 +499,8 @@ class Decorated_blossoming_tree:
         """
         new_l = []
         for i in range(len(l)):
-            new_l.append(0)
             new_l.append(l[i])
+            new_l.append(0)
         t = classical_generation(new_l)[0]
         m = [0]
         t.iterative_post_order_traversal(lambda node: incr_l_leaf(m,node))
@@ -456,6 +528,7 @@ class Decorated_blossoming_tree:
         r"""
         Sample randomly an eulerian tree with n nodes of degree 4.
         This work by reject.
+        Not very effective, it will be depreciated.
         """
         t = BinaryTrees(n).random_element()
         b = [randint(0,1)]+[randint(0,2) for _ in range(n-1)]
