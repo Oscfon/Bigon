@@ -3,6 +3,10 @@ from surface_dynamics import *
 
 
 def labels(G):
+    r"""
+    Assign a label (an integer) to each vertex and each face of G.
+    Compute for each darts the vertex and the face it belongs. 
+    """
     vertices = G.vertices()
     faces = G.faces()
     darts = list(G.darts())
@@ -18,6 +22,11 @@ def labels(G):
 
 
 def tree_co_tree(G):
+    r"""
+    Compute a tree/co-tree decomposition of G.
+    Return a list res of length the number of darts of G.
+    res[e] is 0 if the dart e is in the tree, 1 if e is in the co-tree and 2 otherwise.
+    """
     darts_to_vertex, darts_to_face = labels(G)
     vp = G.vertex_permutation(copy=False)
     T_found=[False for _ in G.vertices()]
@@ -75,6 +84,22 @@ def tree_co_tree(G):
 
 
 def tree_contraction(G, treecotree):
+    r"""
+    Compute the Fatgraph F obtained from G by:
+        - contracting all the edge in the tree of treecotree
+        - removing all the edge in the co-tree of treecotree
+    Compute a list correspondence of length the number of darts of G such that correspondence[e] is:
+        - None if e is an edge of the tree of treecotree
+        - d such that fp[d]=e in G after contracting the edge of the tree if e is an edge of the cotree
+        - the corresponding edge of F otherwise
+
+    INPUT:
+
+    treecotree should be a list of lenght the number of darts in G where G[e] is:
+        - 0 if e is in the tree
+        - 1 if e is in the co-tree
+        - 2 otherwise
+    """
     fp=G.face_permutation(copy=False)
     correspondence = [None for _ in G.darts()]
     nfp=[None for _ in range(4*G.genus())]
@@ -107,6 +132,24 @@ def tree_contraction(G, treecotree):
     return F,correspondence
             
 def quad_system(G, treecotree):
+    r"""
+    Compute the quad system associated to G and the tree/co-tree decomposition of treecotree.
+
+    
+    INPUT:
+
+    treecotree should be a list of lenght the number of darts in G where G[e] is:
+        - 0 if e is in the tree
+        - 1 if e is in the co-tree
+        - 2 otherwise
+
+
+    OUTPUT:
+
+    - Q the FatGraph encoding the quad system of G
+    - cor2 a list such that cor2[e] for a e a dart of G is the list of darts of Q corresponding to e
+    """
+    
     (F,cor)=tree_contraction(G,treecotree)
     vp=F.vertex_permutation(copy=False)
     fp=F.face_permutation(copy=False)
@@ -135,9 +178,9 @@ def quad_system(G, treecotree):
         if treecotree[e]==0:
             cor2.append([])
         elif treecotree[e]==1:
-            start=qfp[cor[e]]//2
+            start=fp[cor[e]]
             e1=e+1 if e%2==0 else e-1
-            end=qfp[cor[e1]]//2
+            end=fp[cor[e1]]
             das=2*remember2[start]+1
             dae=2*remember2[end]
             cor2.append([das,dae])
@@ -149,8 +192,10 @@ def quad_system(G, treecotree):
 
 
 def turn(Q,e,f):
+    r"""
+    Compute the number of turn from dart e to dart f.
+    """
     vp=Q.vertex_permutation(copy=False)
-    i=0
     e1=e+1 if e%2==0 else e-1
     current=e1
     if f==e1:
@@ -187,10 +232,35 @@ def turn_modif(t,x,d):
 
 
 def simplification(Q,d,c,t,e):
+    r"""
+    Update the geodesic representant c and the turn sequence t after adding the edge e to the path.
+
+
+    INPUT:
+
+    - Q -- underlying quad system 
+    - d -- the degree of Q (we assume all vertices of Q have the same degree d)
+    - c -- a geodesic path in Q
+    - t -- the turn sequence corresponding to c
+    - e -- an edge following c
+
+    OUTPUT
+
+    ``None``. This function update the value of c and t.
+    """
     fp=Q.face_permutation(copy=False)
     if len(c)==0:
         c.append(e)
         return
+    elif len(c)==1:
+        newturn = turn(Q,c[-1],e)
+        if newturn==0:
+            c.pop()
+            return
+        else:
+            t.append((newturn,1))
+            c.append(e)
+            return
     last=c[-1]
     (last_t, n_last)=t.pop()
     newturn=turn(Q,last,e)
@@ -254,16 +324,37 @@ def simplification(Q,d,c,t,e):
 
 
 def representant(w, Q, cor):
+    r"""
+    Compute the geodesic representant of w in the quad system Q with correspondance function cor.
+    """
     c = []
     t = []
     d = 4*Q.genus()
     for e in w:
         for f in cor[e]:
-            simplification(Q,d,c,t,e)
+            simplification(Q,d,c,t,f)
     return c, t
 
 def is_homotopic(G,w1,w2,Q=None, cor=None):
-    if Q is None:
+    r"""
+    Test whether two loops w1 and w2 are homotopic in G.
+    If Q and cor are provided the representant will be computed in Q, else the function compute a new quad system.
+
+    TEST::
+
+        sage: G=FatGraph(vp=[2, 13, 4, 7, 6, 8, 0, 3, 10, 15, 12, 25, 14, 27, 5, 16, 18, 26, 20, 23, 9, 22, 24, 1, 21, 17, 11, 19])
+        sage: is_homotopic(G, [], [])
+        True
+        sage: is_homotopic(G, [], [15, 8])
+        False
+        sage: is_homotopic(G, [], [8, 20, 24, 11])
+        True
+        sage: is_homotopic(G, [16, 26, 19], [9, 14])
+        False
+        sage: is_homotopic(G, [14, 9], [12, 1, 6, 3, 0, 23, 21, 18, 27, 17, 9])
+        True
+    """
+    if Q is None or cor is None:
         treecotree=tree_co_tree(G)
         Q, cor = quad_system(G, treecotree)
     c1, t1=representant(w1, Q, cor)
