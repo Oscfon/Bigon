@@ -1,5 +1,6 @@
 from flatsurf import *
 from surface_dynamics import *
+from collections import deque
 
 
 def labels(G):
@@ -259,8 +260,8 @@ def simplification(Q,d,c,t,e):
 
     - Q -- underlying quad system 
     - d -- the degree of Q (we assume all vertices of Q have the same degree d)
-    - c -- a geodesic path in Q
-    - t -- the turn sequence corresponding to c
+    - c -- a geodesic path in Q (as a deque)
+    - t -- the turn sequence corresponding to c (as a deque)
     - e -- an edge following c
 
     OUTPUT
@@ -302,7 +303,7 @@ def simplification(Q,d,c,t,e):
         return True
     elif newturn==last_t:
         c.append(e)
-        t.append(newturn,n_last+1)
+        t.append((newturn,n_last+1))
         return False
     else:
         c.append(e)
@@ -313,7 +314,7 @@ def simplification(Q,d,c,t,e):
 
 def spur_removal(c,t):
     c.pop()
-    c=c[1:]
+    c=c.popleft()
     (t1,n1)=t.pop()
     if n1>1:
         t.append(t1,n1-1)
@@ -321,135 +322,154 @@ def spur_removal(c,t):
     if n2>1:
         t[0]=(t2,n2)
     else:
-        t=t[1:]
+        t=t.popleft()
 
-def bracket_removal(c, t, positive, length, d, end=True):
-    if end and positive:
-        l=[]
+def bracket_removal(c, t, positive, length, d):
+    if positive:
+        l=deque([])
         for i in range(length+1,0,-1):
             edge=c[-i]
             edge1=edge+1 if edge%2==0 else edge-1
             l.append(fp[fp[edge1]])
-        c=c[:-length-2]
-        c=c+l
+        for i in range(length+2):
+            c.pop()
+        c=c.extend(l)
         (t2,n2)=t.pop()
         if n2!=1:
             raise ValueError("The path wasn't geodesic")
         turn_modif(t,-1,d)
         turn_add(t,d-2,length)
-    elif end:
-        l=[]
+    else:
+        l=deque([])
         for i in range(length+1,0,-1):
             edge=fp[fp[c[-i]]]
             edge1=edge+1 if edge%2==0 else edge-1
             l.append(edge1)
-        c=c[:-length-2]
-        c=c+l
+        for i in range(length+2):
+            c.pop()
+        c=c.extend(l)
         (t2,n2)=t.pop()
         if n2!=1:
             raise ValueError("The path wasn't geodesic")
         turn_modif(t,1,d)
         turn_add(t,2,length)
-    elif positive:
-        l=[]
-        for i in range(length+1):
-            edge=c[i]
-            edge1=edge+1 if edge%2==0 else edge-1
-            l.append(fp[fp[edge1]])
-        c=c[length+2:]
-        c=l+c
-    else:
-        l=[]
-        for i in range(length+1):
-            edge=fp[fp[c[-i]]]
-            edge1=edge+1 if edge%2==0 else edge-1
-            l.append(edge1)
-        c=c[length+2:]
-        c=l+c
 
 def origin_simplification(Q, d, c, t):
     r"""
     Perform the geodesic simplification at the based point of c
 
     """
+    if len(c)==0:
+        return
+    elif len(c)==1:
+        raise ValueError("The path wasn't geodesic")
     first_turn = turn(Q, c[-1], c[0])
-    if first_turn == 0:
+    if first_turn == 0: #case 1
         spur_removal(c,t)
         origin_simplification(Q, d, c, t)
-    elif first_turn==1 and len(t)==1 and t[0][0]==2:
+    elif first_turn==1 and len(t)==1 and t[0][0]==2: #case 2.1
         c.pop()
-        c=c[1:]
-        l=[]
+        c=c.popleft()
+        l=deque([])
         for e in c:
             e1=e+1 if e%2==0 else e-1
             l.append(fp[fp[e1]])
         c=l
-        t=[(d-2, t[0][1]-2)]
-    elif first_turn==d-1 and len(t)==1 and t[0][0]==d-2:
+        t=deque([(d-2, t[0][1]-2)])
+    elif first_turn==d-1 and len(t)==1 and t[0][0]==d-2: #case 2.2
         c.pop()
-        c=c[1:]
-        l=[]
+        c=c.popleft()
+        l=deque([])
         for e in c:
             e1=e+1 if e%2==0 else e-1
             l.append(fp[fp[e1]])
         c=l
-        t=[(2, t[0][1]-2)]
-    elif first_turn==2 and len(t)>=3:
-
-
-
-
-
-        
-    elif simplification(Q,d,c,t,c[0]):
-        c=c[1:]
-        first_turn = turn(Q, c[-1], c[0])
-        while first_turn==0:
-            spur_removal(c,t)
-            first_turn = turn(Q, c[-1], c[0])
-    else:
-            
-            
-
-
-
-
-
-
-    
-    elif first_turn==1 and len(t)>=1 and t[0][0]==1:
-        c.pop()
-        e=c[0]
-        e1=e+1 if e%2==0 else e-1
-        c=c[1:]
-        c[0]=fp[fp[e1]]
-        if t[0][1]!=1:
-            raise ValueError("The path wasn't geodesic")
-        elif t[1][1]==1:
-            t=t[1:]
-            t[0]=(t[0][0]-1,1)
+        t=deque([(2, t[0][1]-2)])
+    elif first_turn==1 or first_turn==d-1: #case 4
+        a = c.popleft()
+        (t1,n1) = t.popleft()
+        if n1 != 1:
+            t.appendleft((t1,n1-1))
+        bremoved=simplification(Q,d,c,t,a)
+        if bremoved:
+            first_turn=turn(Q, c[-1], c[0])
+            while first_turn == 0:
+                spur_removal(c,t)
+                first_turn=turn(Q, c[-1], c[0])
         else:
-            t[1]=(t[1][0],t[1][1]-1)
-            t[0]=(t[1][0]-1,1)
-        origin_simplification(Q, d, c, t)
-    elif first_turn==d-1 and len(t)>=1 and t[0][0]==d-1:
-        c.pop()
-        e=fp[fp[c[0]]]
-        e1=e+1 if e%2==0 else e-1
-        c=c[1:]
-        c[0]=e1
-        if t[0][1]!=1:
-            raise ValueError("The path wasn't geodesic")
-        elif t[1][1]==1:
-            t=t[1:]
-            t[0]=(t[0][0]+1,1)
-        else:
-            t[1]=(t[1][0],t[1][1]-1)
-            t[0]=(t[1][0]+1,1)
-        origin_simplification(Q, d, c, t)
-    elif first_turn==1 and len(t)>=2 and 
-    
-
+            c.rotate()
+            if n1==1:
+                t.appendleft((t1,n1))
+            else:
+                t.popleft()
+                t.appendleft((t1,n1))
+            (t2,n2)=t.pop()
+            if n2 != 1:
+                t.append((t2,n2-1))
+            c.reverse()
+            t.reverse()
+            b = c.popleft()
+            (t3,n3) = t.popleft()
+            if n3 != 1:
+                t.appendleft((t3,n3-1))
+            bremoved2=simplification(Q,d,c,t,b)
+            if bremoved2:
+                c.reverse()
+                t.reverse()
+                first_turn=turn(Q, c[-1], c[0])
+                while first_turn == 0:
+                    spur_removal(c,t)
+                    first_turn=turn(Q, c[-1], c[0])
+            else:
+                c.rotate()
+                if n3==1:
+                    t.appendleft((t3,n3))
+                else:
+                    t.popleft()
+                    t.appendleft((t3,n3))
+                (t4,n4)=t.pop()
+                if n4 != 1:
+                    t.append((t4,n4-1))
+                c.reverse()
+                t.reverse()
+    elif first_turn==2 and len(t)>=3: #case 3
+        while first_turn==2:
+            c.append(c.popleft())
+            (t1,n1)=t.popleft()
+            if n1!=1:
+                t.appendleft((t1,n1-1))
+            (t2,n2)=t.pop()
+            if t2==2:
+                t.append((2,n2+1))
+            else:
+                t.append((t2,n2))
+                t.append((2,1))
+            first_turn=t1
+        if first_turn==1:
+            a=c.popleft()
+            (t1,n1) = t.popleft()
+            if n1 != 1:
+                t.appendleft((t1,n1-1))
+            simplification(Q,d,c,t,a)
+    elif fisrt_turn == d-2 and len(t)>=3: #case 3
+        while first_turn==d-2:
+            c.append(c.popleft())
+            (t1,n1)=t.popleft()
+            if n1!=1:
+                t.appendleft((t1,n1-1))
+            (t2,n2)=t.pop()
+            if t2==2:
+                t.append((2,n2+1))
+            else:
+                t.append((t2,n2))
+                t.append((2,1))
+            first_turn=t1
+        if first_turn==d-1:
+            a=c.popleft()
+            (t1,n1) = t.popleft()
+            if n1 != 1:
+                t.appendleft((t1,n1-1))
+            simplification(Q,d,c,t,a)
 
 def representant(w, Q, cor):
     r"""
@@ -461,6 +481,8 @@ def representant(w, Q, cor):
     for e in w:
         for f in cor[e]:
             simplification(Q,d,c,t,f)
+    origin_simplification(Q,d,c,t)
+    
     return c, t
 
 def is_homotopic(G,w1,w2,Q=None, cor=None):
