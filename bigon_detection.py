@@ -240,6 +240,18 @@ def turn_add(t,turn,num):
         else:
             t.append((turn,num))
 
+def turn_add_left(t,turn,num):
+    if num==0:
+        return
+    if len(t)==0:
+        t.append((turn,num))
+    else:
+        if t[0][0]==turn:
+            (a,b)=t.popleft()
+            t.appendleft((a,b+1))
+        else:
+            t.appendleft((turn,num))
+
 def turn_modif(t,x,d):
     if len(t)==0:
         return
@@ -471,7 +483,85 @@ def origin_simplification(Q, d, c, t):
                 t.appendleft((t1,n1-1))
             simplification(Q,d,c,t,a)
 
-def representant(w, Q, cor):
+def rightpush(Q,c,t):
+    r"""
+    Perform the right push to the cyclic geodesic path c and its turn sequence t to make a canonical reprensentative c.
+    """
+    if len(c)==0:
+        return
+    elif len(c)==1:
+        raise ValueError("The path wasn't geodesic")
+    first_turn=turn(Q, c[-1], c[0])
+    fp=Q.face_permutation(copy=False)
+    if first_turn==2 and len(t)==1 and t[0][0]==2:
+        l=deque([])
+        for e in c:
+            e1=e+1 if e%2==0 else e-1
+            l.append(fp[fp[e1]])
+        c=l
+        t=deque((d-2,t[0][1]))
+        return
+    length=len(c)
+    i = 0
+    while i<length:
+        if first_turn==1:
+            (t1,n1)=t.pop()
+            (t2,n2)=t.popleft()
+            if t1==2 and t2==2 and len(t)==1:
+                (t3,n3)=t.pop()
+                if n3==1 and t3==3:
+                    t.append((d-2,n2))
+                    t.append((d-1,1))
+                    t.append((d-2,n1))
+                    l=deque([])
+                    for j in range(n2):
+                        e=c[1+j]
+                        e1=e+1 if e%2==0 else e-1
+                        l.append(fp[fp[e1]])
+                    x=fp[vp[e1]]
+                    l.append(x)
+                    l.append(fp[x])
+                    for j in range(n1+1,1,-1):
+                        e=c[-j]
+                        e1=e+1 if e%2==0 else e-1
+                        l.append(fp[fp[e1]])
+                    c=l
+                    return
+                elif n3==1:
+                    turn_add(t,d-2,n2-1)
+                    turn_add(t,d-1,1)
+                    turn_add(t,n3-2,1)
+                    turn_add(t,d-1,1)
+                    turn_add(t,d-2,n1-1)
+                    l=deque([])
+                    for j in range(n2):
+                        e=c[1+j]
+                        e1=e+1 if e%2==0 else e-1
+                        l.append(fp[fp[e1]])
+                    x=fp[vp[e1]]
+                    l.append(x)
+                    l.append(fp[x])
+                    for j in range(n1+1,1,-1):
+                        e=c[-j]
+                        e1=e+1 if e%2==0 else e-1
+                        l.append(fp[fp[e1]])
+                    c=l
+                    return
+                
+        else:
+            i+=1
+            c.rotate()
+            turn_add_left(t,first_turn,1)
+            (t1,n1)=t.pop()
+            first_turn=t1
+            if n1!=1:
+                t.append((t1,n1-1))
+            
+                
+        
+    
+
+def reprensentative(w, Q, cor):
     r"""
     Compute the geodesic representant of w in the quad system Q with correspondance function cor.
     """
@@ -482,7 +572,7 @@ def representant(w, Q, cor):
         for f in cor[e]:
             simplification(Q,d,c,t,f)
     origin_simplification(Q,d,c,t)
-    
+    rightpush(Q,c,t)
     return c, t
 
 def is_homotopic(G,w1,w2,Q=None, cor=None):
@@ -507,8 +597,8 @@ def is_homotopic(G,w1,w2,Q=None, cor=None):
     if Q is None or cor is None:
         treecotree=tree_co_tree(G)
         Q, cor = quad_system(G, treecotree)
-    c1, t1=representant(w1, Q, cor)
-    c2, t2=representant(w2, Q, cor)
+    c1, t1=reprensentative(w1, Q, cor)
+    c2, t2=reprensentative(w2, Q, cor)
     return c1==c2
 
 
