@@ -93,6 +93,7 @@ def tree_contraction(G, treecotree):
         - None if e is an edge of the tree of treecotree
         - d such that fp[d]=e in G after contracting the edge of the tree if e is an edge of the cotree
         - the corresponding edge of F otherwise
+    Compute a list recor such that recor[f] for f a dart in F is the corresponding dart in G
     Compute a list rank such that rank[e] is:
         - None if e is an edge of the tree of treecotree
         - the index of e around the vertex if e is an edge of the cotree
@@ -385,7 +386,6 @@ def bracket_removal(Q, c, t, positive, length, d):
 def origin_simplification(Q, d, c, t):
     r"""
     Perform the geodesic simplification at the based point of c
-
     """
     if len(c)==0:
         return
@@ -427,7 +427,11 @@ def origin_simplification(Q, d, c, t):
                 spur_removal(c,t)
                 first_turn=turn(Q, c[-1], c[0])
         else:
-            origin_simplification(Q,d,c,t)
+            new_turn=turn(Q, c[-1], c[0])
+            if new_turn+first_turn==d:
+                return
+            else:
+                origin_simplification(Q,d,c,t)
     elif first_turn==2 and len(t)>=3: #case 3
         while first_turn==2:
             c.append(c.popleft())
@@ -602,7 +606,7 @@ def rightpush(Q,d,c,t):
 
 def reprensentative(w, Q, cor):
     r"""
-    Compute the geodesic representant of w in the quad system Q with correspondance function cor.
+    Compute the geodesic representative of w in the quad system Q with correspondance function cor.
     """
     c = deque([])
     t = deque([])
@@ -742,7 +746,11 @@ def area_precomuputation(G, treecotree):
             et=0
             it=0
             alpha=0
-            la=rank[e1]-rank[e]-1
+            if current!=end or rank[e1]>rank[e]:
+                la=rank[e1]-rank[e]-1
+            else:
+                current=fpF[current]
+                la=rank[recor[current]]-rank[e]+rank[e1]-1
             while current != end:
                 current=fpF[current]
                 om+=omegaF[current]
@@ -769,6 +777,62 @@ def area(G, w, local_area, omega, eta, integral):
         alpha += omega[e]
     return dom*G.num_faces()-area
 
+
+def bigon_test_slow(M, e, l):
+    r"""
+    Test if there is a bigon in the 4-valency map M starting in the corner next to e of length l.
+    If there is such a bigon, return the path formed by the boundary of this bigon starting from e.
+
+    Should be changed soon to a more efficient version!
+    """
+    vp=M.vertex_permutation(copy=False)
+    d=[e]
+    f=vp[e]
+    u=[f]
+    for _ in range(l-1):
+        e=d[-1]
+        e1=e+1 if e%2==0 else e-1
+        d.append(vp[vp[e1]])
+        f=u[-1]
+        f1=f+1 if f%2==0 else f-1
+        u.append(vp[vp[f1]])
+    endD=d[-1]+1 if d[-1]%2==0 else d[-1]-1
+    endU=u[-1]+1 if u[-1]%2==0 else u[-1]-1
+    if vp[endU] != endD:
+        return False, []
+    for i in range(len(u)-1,-1,-1):
+        d.append(u[i]+1 if u[i]%2==0 else u[i]-1)
+    return is_homotopic(M, d, []), d
+
+
+def minimal_bigon(M):
+    r"""
+    Find the minimal bigon in M. If no such bigon exist, this functions return None.
+    """
+    n=M.num_vertices()
+    treecotree=tree_co_tree(M)
+    la, om, et, it=area_precomuputation(M,treecotree)
+    bigons=[]
+    area_bigons=[]
+    for e in M.darts():
+        l=1
+        found=False
+        while not found and l<=12*n:
+            found,path=bigon_test_slow(M,e,l)
+            l+=1
+        if found:
+            bigons.append(path)
+            area_bigons.append(area(H, path, la, om, et, it))
+    if len(bigons)==0:
+        return None
+    else:
+        min_ind=0
+        value=area_bigons[0]
+        for j in range(len(bigons)):
+            if value>area_bigons[j]:
+                value=area_bigons[j]
+                min_ind=j
+        return bigons[min_ind], area_bigons[min_ind]
 
 
 
