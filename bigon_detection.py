@@ -229,7 +229,7 @@ def turn(Q,e,f):
     return turn
 
 def turn_add(t,turn,num):
-    if num==0:
+    if num<=0:
         return
     if len(t)==0:
         t.append((turn,num))
@@ -241,7 +241,7 @@ def turn_add(t,turn,num):
             t.append((turn,num))
 
 def turn_add_left(t,turn,num):
-    if num==0:
+    if num<=0:
         return
     if len(t)==0:
         t.append((turn,num))
@@ -263,6 +263,16 @@ def turn_modif(t,x,d):
     else:
         turn_add(t,r,1)
 
+def turn_modif_left(t,x,d):
+    if len(t)==0:
+        return
+    (t1,n1)=t.popleft()
+    r=(t1+x)%d
+    if n1>1:
+        t.appendleft((t1,n1-1))
+        t.appendleft((r,1))
+    else:
+        turn_add_left(t,r,1)
 
 def simplification(Q,d,c,t,e):
     r"""
@@ -278,7 +288,7 @@ def simplification(Q,d,c,t,e):
 
     OUTPUT
 
-    Return a boolean saying if we flatten a bracket or did a spur removal.
+    Return a boolean saying if we flatten a bracket or remove a spur.
     This function update the value of c and t.
     """
     fp=Q.face_permutation(copy=False)
@@ -294,6 +304,8 @@ def simplification(Q,d,c,t,e):
             t.append((newturn,1))
             c.append(e)
             return False
+    if len(t)==0:
+        raise ValueError("The length of t for c = {} shouldn't be 0.".format(c))
     last=c[-1]
     (last_t, n_last)=t.pop()
     newturn=turn(Q,last,e)
@@ -303,15 +315,16 @@ def simplification(Q,d,c,t,e):
             t.append((last_t,n_last-1))
         return True
     elif newturn==1 and last_t==1:
-        bracket_removal(c, t, True, 0, d)
+        bracket_removal(Q, c, t, True, 0, d)
+        return True
     elif newturn==d-1 and last_t==d-1:
-        bracket_removal(c, t, False, 0, d)
+        bracket_removal(Q, c, t, False, 0, d)
         return True
-    elif len(t)>=2 and newturn==1 and last_t==2 and t[-1][0]==1:
-        bracket_removal(c, t, True, n_last, d)
+    elif len(t)>=1 and newturn==1 and last_t==2 and t[-1][0]==1:
+        bracket_removal(Q, c, t, True, n_last, d)
         return True
-    elif len(t)>=2 and newturn==d-1 and last_t==d-2 and t[-1][0]==d-1:
-        bracket_removal(c, t, False, n_last, d)
+    elif len(t)>=1 and newturn==d-1 and last_t==d-2 and t[-1][0]==d-1:
+        bracket_removal(Q, c, t, False, n_last, d)
         return True
     elif newturn==last_t:
         c.append(e)
@@ -336,7 +349,8 @@ def spur_removal(c,t):
     else:
         t=t.popleft()
 
-def bracket_removal(c, t, positive, length, d):
+def bracket_removal(Q, c, t, positive, length, d):
+    fp=Q.face_permutation(copy=False)
     if positive:
         l=deque([])
         for i in range(length+1,0,-1):
@@ -346,9 +360,10 @@ def bracket_removal(c, t, positive, length, d):
         for i in range(length+2):
             c.pop()
         c=c.extend(l)
-        (t2,n2)=t.pop()
-        if n2!=1:
-            raise ValueError("The path wasn't geodesic")
+        if length!=0:
+            (t2,n2)=t.pop()
+            if n2!=1:
+                raise ValueError("The path wasn't geodesic")
         turn_modif(t,-1,d)
         turn_add(t,d-2,length)
     else:
@@ -360,9 +375,10 @@ def bracket_removal(c, t, positive, length, d):
         for i in range(length+2):
             c.pop()
         c=c.extend(l)
-        (t2,n2)=t.pop()
-        if n2!=1:
-            raise ValueError("The path wasn't geodesic")
+        if length!=0:
+            (t2,n2)=t.pop()
+            if n2!=1:
+                raise ValueError("The path wasn't geodesic")
         turn_modif(t,1,d)
         turn_add(t,2,length)
 
@@ -386,7 +402,8 @@ def origin_simplification(Q, d, c, t):
         for e in c:
             e1=e+1 if e%2==0 else e-1
             l.append(fp[fp[e1]])
-        c=l
+        c.clear()
+        c.extend(l)
         t=deque([(d-2, t[0][1]-2)])
     elif first_turn==d-1 and len(t)==1 and t[0][0]==d-2: #case 2.2
         c.pop()
@@ -395,7 +412,8 @@ def origin_simplification(Q, d, c, t):
         for e in c:
             e1=e+1 if e%2==0 else e-1
             l.append(fp[fp[e1]])
-        c=l
+        c.clear()
+        c.extend(l)
         t=deque([(2, t[0][1]-2)])
     elif first_turn==1 or first_turn==d-1: #case 4
         a = c.popleft()
@@ -409,41 +427,7 @@ def origin_simplification(Q, d, c, t):
                 spur_removal(c,t)
                 first_turn=turn(Q, c[-1], c[0])
         else:
-            c.rotate()
-            if n1==1:
-                t.appendleft((t1,n1))
-            else:
-                t.popleft()
-                t.appendleft((t1,n1))
-            (t2,n2)=t.pop()
-            if n2 != 1:
-                t.append((t2,n2-1))
-            c.reverse()
-            t.reverse()
-            b = c.popleft()
-            (t3,n3) = t.popleft()
-            if n3 != 1:
-                t.appendleft((t3,n3-1))
-            bremoved2=simplification(Q,d,c,t,b)
-            if bremoved2:
-                c.reverse()
-                t.reverse()
-                first_turn=turn(Q, c[-1], c[0])
-                while first_turn == 0:
-                    spur_removal(c,t)
-                    first_turn=turn(Q, c[-1], c[0])
-            else:
-                c.rotate()
-                if n3==1:
-                    t.appendleft((t3,n3))
-                else:
-                    t.popleft()
-                    t.appendleft((t3,n3))
-                (t4,n4)=t.pop()
-                if n4 != 1:
-                    t.append((t4,n4-1))
-                c.reverse()
-                t.reverse()
+            origin_simplification(Q,d,c,t)
     elif first_turn==2 and len(t)>=3: #case 3
         while first_turn==2:
             c.append(c.popleft())
@@ -463,7 +447,7 @@ def origin_simplification(Q, d, c, t):
             if n1 != 1:
                 t.appendleft((t1,n1-1))
             simplification(Q,d,c,t,a)
-    elif fisrt_turn == d-2 and len(t)>=3: #case 3
+    elif first_turn == d-2 and len(t)>=3: #case 3
         while first_turn==d-2:
             c.append(c.popleft())
             (t1,n1)=t.popleft()
@@ -483,7 +467,7 @@ def origin_simplification(Q, d, c, t):
                 t.appendleft((t1,n1-1))
             simplification(Q,d,c,t,a)
 
-def rightpush(Q,c,t):
+def rightpush(Q,d,c,t):
     r"""
     Perform the right push to the cyclic geodesic path c and its turn sequence t to make a canonical reprensentative c.
     """
@@ -493,27 +477,46 @@ def rightpush(Q,c,t):
         raise ValueError("The path wasn't geodesic")
     first_turn=turn(Q, c[-1], c[0])
     fp=Q.face_permutation(copy=False)
+    vp=Q.vertex_permutation(copy=False)
     if first_turn==2 and len(t)==1 and t[0][0]==2:
         l=deque([])
         for e in c:
             e1=e+1 if e%2==0 else e-1
             l.append(fp[fp[e1]])
-        c=l
-        t=deque((d-2,t[0][1]))
+        c.clear()
+        c.extend(l)
+        m=t[0][1]
+        t.clear()
+        t.append((d-2,m))
         return
     length=len(c)
     i = 0
-    while i<length:
+    while i<=length:
         if first_turn==1:
-            (t1,n1)=t.pop()
-            (t2,n2)=t.popleft()
-            if t1==2 and t2==2 and len(t)==1:
+            if t[0][0]==2 and t[-1][0]==2:
+                (t1,n1)=t.pop()
+                (t2,n2)=t.popleft()
+            elif t[0][0]==2:
+                n1=0
+                (t2,n2)=t.popleft()
+            elif t[-1][0]==2:
+                n2=0
+                (t1,n1)=t.pop()
+            else:
+                n1=0
+                n2=0
+            if len(t)==0:
+                turn_add(t,t2,n2)
+                turn_add(t,t1,n1)
+            elif len(t)==1 and t[0][1]==1:
                 (t3,n3)=t.pop()
-                if n3==1 and t3==3:
-                    t.append((d-2,n2))
-                    t.append((d-1,1))
-                    t.append((d-2,n1))
+                if t3==3:
+                    turn_add(t,d-2,n2)
+                    turn_add(t,d-1,1)
+                    turn_add(t,d-2,n1)
                     l=deque([])
+                    e=c[0]
+                    e1=e+1 if e%2==0 else e-1
                     for j in range(n2):
                         e=c[1+j]
                         e1=e+1 if e%2==0 else e-1
@@ -525,54 +528,90 @@ def rightpush(Q,c,t):
                         e=c[-j]
                         e1=e+1 if e%2==0 else e-1
                         l.append(fp[fp[e1]])
-                    c=l
+                    c.clear()
+                    c.extend(l)
                     return
-                elif n3==1:
+                else:
                     turn_add(t,d-2,n2-1)
-                    turn_add(t,d-1,1)
-                    turn_add(t,n3-2,1)
-                    turn_add(t,d-1,1)
+                    if n2 != 0:
+                        turn_add(t,d-1,1)
+                    turn_add(t,t3-2,1)
+                    if n1 != 0:
+                        turn_add(t,d-1,1)
                     turn_add(t,d-2,n1-1)
                     l=deque([])
+                    e=c[0]
+                    e1=e+1 if e%2==0 else e-1
                     for j in range(n2):
                         e=c[1+j]
                         e1=e+1 if e%2==0 else e-1
                         l.append(fp[fp[e1]])
-                    x=fp[vp[e1]]
-                    l.append(x)
-                    l.append(fp[x])
+                    x=vp[e1]
+                    l.append(x+1 if x%2==0 else x-1)
+                    y=c[n2+1]
+                    l.append(fp[y+1 if y%2==0 else y-1])
                     for j in range(n1+1,1,-1):
                         e=c[-j]
                         e1=e+1 if e%2==0 else e-1
                         l.append(fp[fp[e1]])
-                    c=l
+                    c.clear()
+                    c.extend(l)
                     return
-                
-        else:
-            i+=1
-            c.rotate()
-            turn_add_left(t,first_turn,1)
-            (t1,n1)=t.pop()
-            first_turn=t1
-            if n1!=1:
-                t.append((t1,n1-1))
-            
-                
-        
-    
+            else:
+                turn_modif(t,-1,d)
+                if n1!=0:
+                    turn_add(t,d-1,1)
+                turn_add(t,d-2,n1-1)
+                if n1!=0 and n2!=0:
+                    first_turn=d-3
+                elif n1!=0 or n2!=0:
+                    first_turn=d-2
+                else:
+                    first_turn=d-1
+                turn_modif_left(t,1,d)
+                if n2!=0:
+                    turn_add_left(t,d-1,1)
+                turn_add_left(t,d-2,n2-1)
+                l=deque()
+                for _ in range(n2):
+                    e=c.popleft()
+                    e1=e+1 if e%2==0 else e-1
+                    l.appendleft(fp[vp[e1]])
+                e=c.popleft()
+                e1=e+1 if e%2==0 else e-1
+                e2=vp[e1]
+                e3=e2+1 if e2%2==0 else e2-1
+                c.extendleft(l)
+                c.appendleft(e3)
+                l=deque()
+                e=c.pop()
+                e1=e+1 if e%2==0 else e-1
+                for _ in range(n1):
+                    e=c.pop()
+                    e1=e+1 if e%2==0 else e-1
+                    l.append(fp[fp[e1]])
+                c.extend(l)
+                c.append(fp[e1])
+        i+=1
+        c.rotate()
+        turn_add_left(t,first_turn,1)
+        (t1,n1)=t.pop()
+        first_turn=t1
+        if n1!=1:
+            t.append((t1,n1-1))
 
 def reprensentative(w, Q, cor):
     r"""
     Compute the geodesic representant of w in the quad system Q with correspondance function cor.
     """
-    c = []
-    t = []
+    c = deque([])
+    t = deque([])
     d = 4*Q.genus()
     for e in w:
         for f in cor[e]:
             simplification(Q,d,c,t,f)
     origin_simplification(Q,d,c,t)
-    rightpush(Q,c,t)
+    rightpush(Q,d,c,t)
     return c, t
 
 def is_homotopic(G,w1,w2,Q=None, cor=None):
@@ -593,13 +632,56 @@ def is_homotopic(G,w1,w2,Q=None, cor=None):
         False
         sage: is_homotopic(G, [14, 9], [12, 1, 6, 3, 0, 23, 21, 18, 27, 17, 9])
         True
+        sage: is_homotopic(G, [8, 20, 22, 13], [5, 0, 27, 11])
+        False
+        sage: is_homotopic(G, [15, 5, 6, 3, 4, 12, 19], [20, 24, 17, 15, 12, 1, 6, 3, 0, 19, 16, 25, 21])
+        True
     """
     if Q is None or cor is None:
         treecotree=tree_co_tree(G)
         Q, cor = quad_system(G, treecotree)
     c1, t1=reprensentative(w1, Q, cor)
     c2, t2=reprensentative(w2, Q, cor)
-    return c1==c2
+    if len(c1)!=len(c2):
+        return False
+    else:
+        l=c2.copy()
+        l.extend(l)
+        return test_KMP(c1,l)
+
+def test_KMP(u,v):
+    r"""
+    Test if u is a subword of v in O(|u|+|v|).
+    """
+    if len(u)==0:
+        return True
+    elif len(v)==0:
+        return False
+    cnd=0
+    T=[-1]
+    for i in range(1,len(u)):
+        if u[i] == u[cnd]:
+            T.append(u[cnd])
+        else:
+            T.append(cnd)
+            while cnd>=0 and u[i]==u[cnd]:
+                cnd=T[cnd]
+            cnd+=1
+    j=0
+    k=0
+    res=False
+    while j<len(v) and not res:
+        if u[k]==v[j]:
+            j+=1
+            k+=1
+            if k==len(u):
+                res=True
+        else:
+            k=T[k]
+            if k==-1:
+                k+=1
+                j+=1
+    return res
 
 
 def forms(D):
