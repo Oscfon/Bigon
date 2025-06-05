@@ -237,7 +237,7 @@ def turn_add(t,turn,num):
     else:
         if t[-1][0]==turn:
             (a,b)=t.pop()
-            t.append((a,b+1))
+            t.append((a,b+num))
         else:
             t.append((turn,num))
 
@@ -249,7 +249,7 @@ def turn_add_left(t,turn,num):
     else:
         if t[0][0]==turn:
             (a,b)=t.popleft()
-            t.appendleft((a,b+1))
+            t.appendleft((a,b+num))
         else:
             t.appendleft((turn,num))
 
@@ -750,6 +750,10 @@ def area_precomuputation(G, treecotree):
                 la=rank[e1]-rank[e]-1
             else:
                 current=fpF[current]
+                om+=omegaF[current]
+                et+=etaF[current]
+                it+= (alpha+omegaF[current]/2)*etaF[current]
+                alpha+=omegaF[current]
                 la=rank[recor[current]]-rank[e]+rank[e1]-1
             while current != end:
                 current=fpF[current]
@@ -783,7 +787,7 @@ def bigon_test_slow(M, e, l):
     Test if there is a bigon in the 4-valency map M starting in the corner next to e of length l.
     If there is such a bigon, return the path formed by the boundary of this bigon starting from e.
 
-    Should be changed soon to a more efficient version!
+    Should be deprecated soon to a more efficient version!
     """
     vp=M.vertex_permutation(copy=False)
     d=[e]
@@ -805,9 +809,215 @@ def bigon_test_slow(M, e, l):
     return is_homotopic(M, d, []), d
 
 
+def turn_update_right(t, last, e, Q, cor, d):
+    r"""
+    Update the turn sequence t by adding the edge e at the right.
+    """
+    if last[1]==None:
+        last[1]=e
+        last[0]=e
+        return
+    nt=turn(Q, last[1], e)
+    if len(t)==0 and nt==0:
+        last=[None, None]
+    elif len(t)==0:
+        turn_add(t, nt, 1)
+        last[1]=e
+    elif nt==0:
+        (t1,n1)=t.pop()
+        if n1!=1:
+            t.append((t1,n1-1))
+        cur=last[1]
+        t2=t[-1][0]
+        for _ in range(d-t2):
+            cur=vp[cur]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[1]=cur
+    elif nt==1 and t[-1][0]==1:
+        (t1,n1)=t.pop()
+        if n1!=1:
+            t.append((t1,n1-1))
+        cur=last[1]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[1]=fp[fp[cur]]
+        if len(t)==0:
+            last[0]=last[1]
+    elif nt==d-1 and t[-1][0]==d-1:
+        (t1,n1)=t.pop()
+        if n1!=1:
+            t.append((t1,n1-1))
+        cur=last[1]
+        cur=fp[fp[cur]]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[1]=cur
+        if len(t)==0:
+            last[0]=last[1]
+    elif len(t)>=2 and nt==1 and t[-1][0]==2 and t1[-2][0]==1:
+        (t1, n1)=t.pop()
+        (t2, n2)=t.pop()
+        if n2!=1:
+            t.append((t2,n2-1))
+        t.append((d-2,n1))
+        cur=last[1]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[1]=fp[fp[cur]]
+        if len(t)==1:
+            cur=last[0]
+            cur=cur+1 if cur%2==0 else cur-1
+            last[0]=fp[fp[cur]]
+    elif len(t)>=2 and nt==d-1 and t[-1][0]==d-2 and t[-2][0]==d-1:
+        (t1, n1)=t.pop()
+        (t2, n2)=t.pop()
+        if n2!=1:
+            t.append((t2,n2-1))
+        t.append((2,n1))
+        cur=last[1]
+        cur=fp[fp[cur]]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[1]=cur
+        if len(t)==1:
+            cur=last[0]
+            cur=fp[fp[cur]]
+            last[0]=cur+1 if cur%2==0 else cur-1
+    else:
+        last[1]=e
+        turn_add(t, nt, 1)
+
+
+def turn_update_left((t, last, e, Q, cor, d):
+    r"""
+    Update the turn sequence t by adding the edge e at the left.
+    """
+    if last[1]==None:
+        last[1]=e
+        last[0]=e
+        return
+    nt=turn(Q, e, last[0])
+    if len(t)==0 and nt==0:
+        last=[None, None]
+    elif len(t)==0:
+        turn_add_left(t, nt, 1)
+        last[0]=e
+    elif nt==0:
+        (t1,n1)=t.popleft()
+        if n1!=1:
+            t.appendleft((t1,n1-1))
+        cur=last[0]
+        cur=cur+1 if cur%2==0 else cur-1
+        t2=t[-1][0]
+        for _ in range(t2):
+            cur=vp[cur]
+        last[0]=cur
+    elif nt==1 and t[0][0]==1:
+        (t1,n1)=t.popleft()
+        if n1!=1:
+            t.appendleft((t1,n1-1))
+        cur=last[0]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[0]=fp[fp[cur]]
+        if len(t)==0:
+            last[1]=last[0]
+    elif nt==d-1 and t[0][0]==d-1:
+        (t1,n1)=t.popleft()
+        if n1!=1:
+            t.appendleft((t1,n1-1))
+        cur=last[0]
+        cur=fp[fp[cur]]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[0]=cur
+        if len(t)==0:
+            last[1]=last[0]
+    elif len(t)>=2 and nt==1 and t[0][0]==2 and t1[1][0]==1:
+        (t1, n1)=t.popleft()
+        (t2, n2)=t.popleft()
+        if n2!=1:
+            t.appendleft((t2,n2-1))
+        t.appendleft((d-2,n1))
+        cur=last[0]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[0]=fp[fp[cur]]
+        if len(t)==1:
+            cur=last[1]
+            cur=cur+1 if cur%2==0 else cur-1
+            last[1]=fp[fp[cur]]
+    elif len(t)>=2 and nt==d-1 and t[0][0]==d-2 and t[1][0]==d-1:
+        (t1, n1)=t.popleft()
+        (t2, n2)=t.popleft()
+        if n2!=1:
+            t.appendleft((t2,n2-1))
+        t.appendleft((2,n1))
+        cur=last[0]
+        cur=fp[fp[cur]]
+        cur=cur+1 if cur%2==0 else cur-1
+        last[0]=cur
+        if len(t)==1:
+            cur=last[1]
+            cur=fp[fp[cur]]
+            last[1]=cur+1 if cur%2==0 else cur-1
+    else:
+        last[0]=e
+        turn_add_left(t, nt, 1)
+
+
+def bigon_test(M, e, l, Q=None, cor=None):
+    r"""
+    Test if there is a bigon in the 4-valency map M in the corner next to e of length at most l.
+    If there is such a bigon, it detect the one with minimal length.
+    Return the path formed by the boundary of this bigon starting from e.
+
+    INPUT:
+    Q and cor is a quad system corresponding to M. If no such quad system is given, one is computed.
+    """
+    vp=M.vertex_permutation(copy=False)
+    deg=4*M.genus()
+    if Q is None or cor is None:
+        treecotree=tree_co_tree(G)
+        Q, cor = quad_system(G, treecotree)
+    d=[e]
+    f=vp[e]
+    f1=f+1 if f%2==0 else f-1
+    u=[f]
+    turn_seq=deque([])
+    last=[None, None]
+    for rep in cor[f1]:
+        turn_update_right(turn_seq, last, rep, Q, cor, deg)
+    for rep in cor[e]:
+        turn_update_right(turn_seq, last, rep, Q, cor, deg)
+    endD=d[-1]+1 if d[-1]%2==0 else d[-1]-1
+    endU=u[-1]+1 if u[-1]%2==0 else u[-1]-1
+    i=0
+    bigon=(vp[endU]==endD and len(turn_seq)==0)
+    while i<l-1 and not bigon:
+        e=d[-1]
+        e1=e+1 if e%2==0 else e-1
+        next_d=vp[vp[e1]]
+        f=u[-1]
+        f1=f+1 if f%2==0 else f-1
+        next_u=vp[vp[f1]]
+        next_u1=next_u+1 if next_u%2==0 else next_u-1
+        for rep in cor[next_d]:
+            turn_update_right(turn_seq, last, rep, Q, cor, deg)
+        for j in range(len(cor[next_u])):
+            rep=cor[next_u][-j-1]
+            turn_update_left(turn_seq, last, rep, Q, cor, deg)
+        d.append(next_d)
+        u.append(next_u)
+        i+=1
+        endD=d[-1]+1 if d[-1]%2==0 else d[-1]-1
+        endU=u[-1]+1 if u[-1]%2==0 else u[-1]-1
+        bigon=(vp[endU]==endD and len(turn_seq)==0)
+    if bigon:
+        for i in range(len(u)-1,-1,-1):
+            d.append(u[i]+1 if u[i]%2==0 else u[i]-1)
+        return True, d
+    else:
+        return False, []
+    
+
+
 def minimal_bigon(M):
     r"""
-    Find the minimal bigon in M. If no such bigon exist, this functions return None.
+    Find the minimal bigon in M. If no such bigon exist, this function return None.
     """
     n=M.num_vertices()
     treecotree=tree_co_tree(M)
